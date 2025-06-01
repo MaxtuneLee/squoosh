@@ -32,6 +32,7 @@ import WorkerBridge from '../worker-bridge';
 import { resize } from 'features/processors/resize/client';
 import type SnackBarElement from 'shared/custom-els/snack-bar';
 import { drawableToImageData } from '../util/canvas';
+import { ExifManager } from '../util/exif-manager';
 
 export type OutputType = EncoderType | 'identity';
 
@@ -40,6 +41,7 @@ export interface SourceImage {
   decoded: ImageData;
   preprocessed: ImageData;
   vectorImage?: HTMLImageElement;
+  exifData?: any; // EXIF数据，从原图片中提取
 }
 
 interface SideSettings {
@@ -172,11 +174,12 @@ async function compressImage(
   encodeData: EncoderState,
   sourceFilename: string,
   workerBridge: WorkerBridge,
+  exifData?: any,
 ): Promise<File> {
   assertSignal(signal);
 
   const encoder = encoderMap[encodeData.type];
-  const compressedData = await encoder.encode(
+  let compressedData = await encoder.encode(
     signal,
     workerBridge,
     image,
@@ -186,6 +189,17 @@ async function compressImage(
 
   // This type ensures the image mimetype is consistent with our mimetype sniffer
   const type: ImageMimeTypes = encoder.meta.mimeType;
+
+  // If we have EXIF data and this is a JPEG format, embed the EXIF data
+  if (exifData && (type === 'image/jpeg' || encoder.meta.extension === 'jpg')) {
+    try {
+      const tempFile = new File([compressedData], sourceFilename, { type });
+      const blobWithExif = await ExifManager.insertExif(tempFile, exifData);
+      compressedData = await blobWithExif.arrayBuffer();
+    } catch (error) {
+      console.warn('Failed to embed EXIF data:', error);
+    }
+  }
 
   return new File(
     [compressedData],
@@ -703,6 +717,14 @@ export default class Compress extends Component<Props, State> {
           );
         }
 
+        // Extract EXIF data from the original file
+        let exifData: any = null;
+        try {
+          exifData = await ExifManager.extractExif(mainJobState.file);
+        } catch (error) {
+          console.warn('Failed to extract EXIF data:', error);
+        }
+
         // Set default resize values
         this.setState((currentState) => {
           if (mainSignal.aborted) return {};
@@ -754,6 +776,7 @@ export default class Compress extends Component<Props, State> {
           vectorImage,
           preprocessed,
           file: mainJobState.file,
+          exifData,
         };
 
         // Update state for process completion, including intermediate render
@@ -865,6 +888,7 @@ export default class Compress extends Component<Props, State> {
               jobState.encoderState,
               source.file.name,
               workerBridge,
+              source.exifData,
             );
             data = await decodeImage(signal, file, workerBridge);
 

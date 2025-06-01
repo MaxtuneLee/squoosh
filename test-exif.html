@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXIF Test - Squoosh</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result-images {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .image-container {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        img {
+            max-width: 300px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Squoosh EXIF Preservation Test</h1>
+    
+    <div class="test-section info">
+        <h2>📋 Test Instructions</h2>
+        <p>This test verifies that EXIF data is preserved during image compression in Squoosh.</p>
+        <ol>
+            <li>Select a JPEG image that contains EXIF data (camera photos usually have this)</li>
+            <li>The test will extract EXIF data from the original image</li>
+            <li>Open the main Squoosh app and compress the same image</li>
+            <li>Download the compressed image and test it here to verify EXIF preservation</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 EXIF Data Extraction Test</h2>
+        <input type="file" id="fileInput" accept="image/jpeg,image/jpg" />
+        <button onclick="testExifExtraction()">Extract EXIF Data</button>
+        
+        <div id="exifResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🚀 Quick Access to Squoosh</h2>
+        <p>Use this link to open the main Squoosh application:</p>
+        <a href="/build/index.html" target="_blank" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 3px;">
+            Open Squoosh App
+        </a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+    <script>
+        async function testExifExtraction() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('exifResult');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error"><strong>Error:</strong> Please select a JPEG file.</div>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            if (!file.type.includes('jpeg') && !file.type.includes('jpg')) {
+                resultDiv.innerHTML = '<div class="error"><strong>Error:</strong> Please select a JPEG file. Selected file type: ' + file.type + '</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Extracting EXIF data...</div>';
+                
+                // Convert file to data URL for piexif
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const dataUrl = e.target.result;
+                        const exifData = PIEXIF.load(dataUrl);
+                        
+                        // Check if EXIF data exists
+                        if (!exifData || Object.keys(exifData).length === 0) {
+                            resultDiv.innerHTML = '<div class="error"><strong>No EXIF data found</strong> in the selected image.</div>';
+                            return;
+                        }
+                        
+                        // Format EXIF data for display
+                        let exifHtml = '<div class="success"><strong>✅ EXIF Data Found!</strong></div>';
+                        exifHtml += '<pre>';
+                        
+                        // Display key EXIF information
+                        const exifInfo = {};
+                        
+                        if (exifData['0th']) {
+                            for (const [key, value] of Object.entries(exifData['0th'])) {
+                                const tagName = PIEXIF.TAGS['0th'][key] ? PIEXIF.TAGS['0th'][key]['name'] : key;
+                                exifInfo[tagName] = value;
+                            }
+                        }
+                        
+                        if (exifData['Exif']) {
+                            for (const [key, value] of Object.entries(exifData['Exif'])) {
+                                const tagName = PIEXIF.TAGS['Exif'][key] ? PIEXIF.TAGS['Exif'][key]['name'] : key;
+                                exifInfo[tagName] = value;
+                            }
+                        }
+                        
+                        if (exifData['GPS']) {
+                            for (const [key, value] of Object.entries(exifData['GPS'])) {
+                                const tagName = PIEXIF.TAGS['GPS'][key] ? PIEXIF.TAGS['GPS'][key]['name'] : key;
+                                exifInfo[tagName] = value;
+                            }
+                        }
+                        
+                        exifHtml += JSON.stringify(exifInfo, null, 2);
+                        exifHtml += '</pre>';
+                        
+                        exifHtml += '<div style="margin-top: 10px;"><strong>File Info:</strong><br>';
+                        exifHtml += 'Name: ' + file.name + '<br>';
+                        exifHtml += 'Size: ' + (file.size / 1024).toFixed(2) + ' KB<br>';
+                        exifHtml += 'Type: ' + file.type + '</div>';
+                        
+                        resultDiv.innerHTML = exifHtml;
+                        
+                    } catch (error) {
+                        resultDiv.innerHTML = '<div class="error"><strong>Error extracting EXIF:</strong> ' + error.message + '</div>';
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error"><strong>Error:</strong> ' + error.message + '</div>';
+            }
+        }
+        
+        // Allow drag and drop
+        const fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        fileInput.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                testExifExtraction();
+            }
+        });
+    </script>
+</body>
+</html>

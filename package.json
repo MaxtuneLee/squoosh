@@ -53,5 +53,9 @@
     "*.{js,css,json,md,ts,tsx}": "prettier --write",
     "*.{c,h,cpp,hpp}": "clang-format -i",
     "*.rs": "rustfmt"
+  },
+  "dependencies": {
+    "@types/piexifjs": "^1.0.0",
+    "piexifjs": "^1.0.6"
   }
 }
