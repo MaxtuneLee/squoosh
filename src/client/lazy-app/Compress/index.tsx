@@ -692,6 +692,7 @@ export default class Compress extends Component<Props, State> {
 
     let decoded: ImageData;
     let vectorImage: HTMLImageElement | undefined;
+    let exifData: any = null;
 
     // Handle decoding
     if (needsDecoding) {
@@ -718,7 +719,6 @@ export default class Compress extends Component<Props, State> {
         }
 
         // Extract EXIF data from the original file
-        let exifData: any = null;
         try {
           exifData = await ExifManager.extractExif(mainJobState.file);
         } catch (error) {
@@ -776,7 +776,6 @@ export default class Compress extends Component<Props, State> {
           vectorImage,
           preprocessed,
           file: mainJobState.file,
-          //@ts-ignore
           exifData,
         };
 
