@@ -776,6 +776,7 @@ export default class Compress extends Component<Props, State> {
           vectorImage,
           preprocessed,
           file: mainJobState.file,
+          //@ts-ignore
           exifData,
         };
 
